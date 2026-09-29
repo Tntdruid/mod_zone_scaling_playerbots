@@ -1,0 +1,370 @@
+###############################################################################
+# Playerbot Zone Scaling Module
+###############################################################################
+
+#------------------------------------------------------------------------------
+# Generelle indstillinger
+#------------------------------------------------------------------------------
+ZoneScaling.Enable = 1
+
+# Mobs skalerer aldrig under dette level (global bundgrænse).
+ZoneScaling.MinLevel = 1
+
+# Guards ligger dette antal levels over den skalerede baseline (spillerens
+# level, evt. begrænset af zonens/area'ets MinLevel), før resultatet clampes
+# af zonens/area'ets MaxLevel.
+ZoneScaling.GuardLevelOffset = 12
+
+# Skal raid-mobs skaleres yderligere efter antal spillere/playerbots i raidet?
+ZoneScaling.RaidScalingEnable = 1
+# Ekstra scaling pr. spiller/playerbot i raidet (0.02 = 2% pr. medlem).
+ZoneScaling.RaidSizePerPlayerMult = 0.02
+
+# Stat-scaling pr. level forskel mellem mobbens gamle og nye level.
+ZoneScaling.HPPerLevelDiff = 0.05
+ZoneScaling.DmgPerLevelDiff = 0.05
+ZoneScaling.ArmorPerLevelDiff = 0.05
+
+# Lægges til spillerens level FØR resultatet clampes til zonens/area'ets
+# MinLevel/MaxLevel. +1 gør mobs ét level sværere end spilleren, -1 gør dem
+# ét level lettere. Kan overstyres pr. zone/area (se ZoneScaling.Zone.<id>.LevelOffset
+# / ZoneScaling.Area.<id>.LevelOffset nedenfor) - fx til at gøre kun dungeons
+# lidt hårdere uden at røre resten af verdenen.
+ZoneScaling.LevelOffset = 0
+
+# Udled automatisk MinLevel/MaxLevel for alle konfigurerede zoner/areas fra
+# quest_template. Når aktiv overstyrer dette alle Zone/Area MinLevel/MaxLevel-
+# værdier længere nede i filen, så længe der findes quest-data for zonen - de
+# manuelle værdier fungerer herefter kun som fallback for zoner/areas uden egen
+# quest-data (f.eks. raid- eller PvP-zoner). Areas mappes til deres parent-zone,
+# da quests normalt er sorteret pr. zone og ikke pr. subzone/area.
+ZoneScaling.QuestLevelAutoScale = 1
+
+# Default maksimum mob-level for zoner/areas uden egen MaxLevel. 255 = ingen grænse.
+ZoneScaling.Default.MaxLevel = 80
+
+# Rund skalerings-målet ned til nærmeste multiplum af dette antal levels, for at
+# undgå unødig re-scaling når en spiller ligger lige på grænsen. 1 = slået fra.
+ZoneScaling.LevelBand = 1
+
+# Hvor ofte (sekunder) en creature, der IKKE er i kamp, må tjekkes igen og evt.
+# re-skaleres til den nærmeste spiller. En creature bliver desuden altid
+# re-skaleret til den faktiske modstander i det øjeblik den går i kamp - denne
+# indstilling styrer kun den passive "hold øje med hvem der er i nærheden"-del.
+# 0 slår den passive re-check fra (kun spawn + combat-entry skalerer så).
+ZoneScaling.RescaleIntervalSec = 30
+
+
+#------------------------------------------------------------------------------
+# Area/subzone scaling
+# Area-indstillinger har prioritet over zone-indstillinger for den samme spiller.
+#------------------------------------------------------------------------------
+ZoneScaling.AreaIds = 209,271,465,722,1537,1637,2017,2057,2118,2367,2557,2677,3456,3457,3507,3508,3517,3520,3606,3607,3636,3646,3648,3679,3680,3685,3688,3707,3708,3709,3710,3713,3714,3715,3716,3717,3742,3744,3745,3748,3749,3754,3789,3790,3791,3836,3845,3847,3848,3849,3852,3880,3893,3935,3938,3944,3959,3973,3974,3975,3976,3977,3978,3980,3999,4009,4128,4157,4221,4272,4405,4520
+
+# Kun de areas, der afviger fra defaultintervallet (MinLevel=1 / MaxLevel=80),
+# er listet nedenfor. Alle andre areas i ZoneScaling.AreaIds ovenfor bruger
+# stiltiende default-intervallet.
+
+ZoneScaling.Area.271.MinLevel = 20
+ZoneScaling.Area.271.MaxLevel = 30
+ZoneScaling.Area.465.MinLevel = 15
+ZoneScaling.Area.465.MaxLevel = 30
+ZoneScaling.Area.2118.MaxLevel = 10
+ZoneScaling.Area.3980.MinLevel = 70
+ZoneScaling.Area.3980.MaxLevel = 72
+ZoneScaling.Area.3999.MinLevel = 70
+ZoneScaling.Area.3999.MaxLevel = 72
+ZoneScaling.Area.4157.MinLevel = 68
+ZoneScaling.Area.4157.MaxLevel = 75
+ZoneScaling.Area.4221.MinLevel = 73
+ZoneScaling.Area.4221.MaxLevel = 75
+
+
+#------------------------------------------------------------------------------
+# Zone-liste
+# Kommasepareret liste over alle konfigurerede WotLK-zone-ID'er. Zoner uden
+# egne Zone.<id>.* indstillinger nedenfor bruger ZoneScaling.Default.* ovenfor
+# (eller quest_template-data, når QuestLevelAutoScale=1 og data findes).
+#------------------------------------------------------------------------------
+ZoneScaling.ZoneIds = 1,3,4,8,10,11,12,14,15,16,17,28,33,36,38,40,41,44,45,46,47,51,65,66,67,85,130,139,141,148,215,267,331,357,361,394,400,405,406,440,490,493,495,618,3430,3433,3483,3484,3485,3486,3487,3488,3518,3519,3520,3524,3537,3703,3711,3712,4197,4298,1581,209,717,718,491,719,1337,721,1477,722,1176,1583,1584,2017,2100,2437,2557,2057,2366,206,1196,4196,4265,4264,4272,4277,4416,4417
+
+# Zoner uden Zone.<id>.MinLevel/MaxLevel herunder (f.eks. Outland/Northrend-
+# zoner som Hellfire Peninsula, Icecrown, Wintergrasp osv.) er bevidst ikke
+# håndtunet - de læner sig op ad QuestLevelAutoScale / Default.MaxLevel.
+
+#------------------------------------------------------------------------------
+# Zone-specifikke MinLevel/MaxLevel (sorteret efter zone-ID)
+#------------------------------------------------------------------------------
+ZoneScaling.Zone.1.MinLevel = 1  # Dun Morogh (start zone)
+ZoneScaling.Zone.1.MaxLevel = 10
+ZoneScaling.Zone.3.MinLevel = 35  # Badlands
+ZoneScaling.Zone.3.MaxLevel = 45
+ZoneScaling.Zone.4.MinLevel = 45  # Blasted Lands
+ZoneScaling.Zone.4.MaxLevel = 60
+ZoneScaling.Zone.8.MinLevel = 40  # Swamp of Sorrows
+ZoneScaling.Zone.8.MaxLevel = 45
+ZoneScaling.Zone.10.MinLevel = 18  # Duskwood
+ZoneScaling.Zone.10.MaxLevel = 30
+ZoneScaling.Zone.11.MinLevel = 20  # Wetlands
+ZoneScaling.Zone.11.MaxLevel = 30
+# Elwynn Forest (start zone) — ingen manuelle Min/Max: bruger QuestLevelAutoScale.
+# Eksempel på hvad en manuel override for en startzone ville se ud som:
+# ZoneScaling.Zone.12.MinLevel = 1
+# ZoneScaling.Zone.12.MaxLevel = 10
+
+ZoneScaling.Zone.14.MinLevel = 1  # Durotar (start zone)
+ZoneScaling.Zone.14.MaxLevel = 10
+ZoneScaling.Zone.15.MinLevel = 35  # Dustwallow Marsh
+ZoneScaling.Zone.15.MaxLevel = 45
+ZoneScaling.Zone.16.MinLevel = 45  # Azshara
+ZoneScaling.Zone.16.MaxLevel = 55
+ZoneScaling.Zone.17.MinLevel = 10  # The Barrens
+ZoneScaling.Zone.17.MaxLevel = 25
+ZoneScaling.Zone.28.MinLevel = 51  # Western Plaguelands
+ZoneScaling.Zone.28.MaxLevel = 58
+ZoneScaling.Zone.33.MinLevel = 30  # Stranglethorn Vale
+ZoneScaling.Zone.33.MaxLevel = 45
+ZoneScaling.Zone.36.MinLevel = 30  # Alterac Mountains
+ZoneScaling.Zone.36.MaxLevel = 40
+ZoneScaling.Zone.38.MinLevel = 10  # Loch Modan
+ZoneScaling.Zone.38.MaxLevel = 10
+ZoneScaling.Zone.40.MinLevel = 10  # Westfall
+ZoneScaling.Zone.40.MaxLevel = 20
+ZoneScaling.Zone.41.MinLevel = 50  # Deadwind Pass
+ZoneScaling.Zone.41.MaxLevel = 60
+ZoneScaling.Zone.44.MinLevel = 15  # Redridge Mountains
+ZoneScaling.Zone.44.MaxLevel = 25
+ZoneScaling.Zone.45.MinLevel = 30  # Arathi Highlands
+ZoneScaling.Zone.45.MaxLevel = 40
+ZoneScaling.Zone.46.MinLevel = 50  # Burning Steppes
+ZoneScaling.Zone.46.MaxLevel = 60
+ZoneScaling.Zone.47.MinLevel = 40  # The Hinterlands
+ZoneScaling.Zone.47.MaxLevel = 50
+ZoneScaling.Zone.51.MinLevel = 43  # Searing Gorge
+ZoneScaling.Zone.51.MaxLevel = 50
+ZoneScaling.Zone.65.MinLevel = 68  # Dragonblight
+ZoneScaling.Zone.65.MaxLevel = 75
+ZoneScaling.Zone.66.MinLevel = 73  # Zul'Drak
+ZoneScaling.Zone.66.MaxLevel = 77
+ZoneScaling.Zone.67.MinLevel = 77  # The Storm Peaks
+ZoneScaling.Zone.67.MaxLevel = 80
+ZoneScaling.Zone.85.MinLevel = 1  # Tirisfal Glades (start zone)
+ZoneScaling.Zone.85.MaxLevel = 10
+ZoneScaling.Zone.130.MinLevel = 10  # Silverpine Forest
+ZoneScaling.Zone.130.MaxLevel = 20
+ZoneScaling.Zone.139.MinLevel = 53  # Eastern Plaguelands
+ZoneScaling.Zone.139.MaxLevel = 60
+ZoneScaling.Zone.141.MinLevel = 1  # Teldrassil (start zone)
+ZoneScaling.Zone.141.MaxLevel = 10
+ZoneScaling.Zone.148.MinLevel = 10  # Darkshore
+ZoneScaling.Zone.148.MaxLevel = 20
+ZoneScaling.Zone.215.MinLevel = 1  # Mulgore (start zone)
+ZoneScaling.Zone.215.MaxLevel = 10
+ZoneScaling.Zone.267.MinLevel = 20  # Hillsbrad Foothills
+ZoneScaling.Zone.267.MaxLevel = 30
+ZoneScaling.Zone.331.MinLevel = 18  # Ashenvale
+ZoneScaling.Zone.331.MaxLevel = 30
+ZoneScaling.Zone.357.MinLevel = 35  # Feralas
+ZoneScaling.Zone.357.MaxLevel = 50
+ZoneScaling.Zone.361.MinLevel = 45  # Felwood
+ZoneScaling.Zone.361.MaxLevel = 55
+ZoneScaling.Zone.394.MinLevel = 73  # Grizzly Hills
+ZoneScaling.Zone.394.MaxLevel = 75
+ZoneScaling.Zone.400.MinLevel = 30  # Thousand Needles
+ZoneScaling.Zone.400.MaxLevel = 35
+ZoneScaling.Zone.405.MinLevel = 30  # Desolace
+ZoneScaling.Zone.405.MaxLevel = 40
+ZoneScaling.Zone.406.MinLevel = 15  # Stonetalon Mountains
+ZoneScaling.Zone.406.MaxLevel = 30
+ZoneScaling.Zone.440.MinLevel = 40  # Tanaris
+ZoneScaling.Zone.440.MaxLevel = 50
+ZoneScaling.Zone.490.MinLevel = 50  # Un'Goro Crater
+ZoneScaling.Zone.490.MaxLevel = 55
+ZoneScaling.Zone.493.MinLevel = 55  # Moonglade
+ZoneScaling.Zone.493.MaxLevel = 60
+ZoneScaling.Zone.495.MinLevel = 70  # Howling Fjord
+ZoneScaling.Zone.495.MaxLevel = 72
+ZoneScaling.Zone.618.MinLevel = 55  # Winterspring
+ZoneScaling.Zone.618.MaxLevel = 60
+ZoneScaling.Zone.3524.MaxLevel = 10  # Azuremyst Isle (start zone)
+
+
+#------------------------------------------------------------------------------
+# Race-startzoner. Bemærk: 3430 (Eversong Woods) og 3433 (Ghostlands) er begge
+# konfigureret i ZoneScaling.ZoneIds, men har ingen manuel Zone.<id>.* nedenfor -
+# de skaleres via QuestLevelAutoScale / Default.MaxLevel som resten. Modulet
+# tilføjer desuden selv MaxLevel=10 for disse 8 zoner, hvis en af dem skulle
+# mangle helt fra ZoneIds (f.eks. ved en gammel worldserver.conf).
+# Alliance: Dun Morogh (1), Elwynn Forest (12), Teldrassil (141), Azuremyst Isle (3524)
+# Horde: Durotar (14), Mulgore (215), Tirisfal Glades (85), Eversong Woods (3430) / Ghostlands (3433)
+#------------------------------------------------------------------------------
+
+#------------------------------------------------------------------------------
+# Dungeons / instances
+# Zone-ID'erne herunder er hentet fra AzerothCores eget AreaTable.dbc-dump for
+# 3.3.5a (azerothcore.org/wiki/areatable) og krydstjekket hvor muligt. Brug
+# ".gps" eller ".lookup area <navn>" til at spotteste et par stykker foer I
+# kører live, saerligt dem med en bemaerkning nedenfor.
+#------------------------------------------------------------------------------
+
+# Shadowfang Keep (Zone 209)
+ZoneScaling.Zone.209.MinLevel = 18
+ZoneScaling.Zone.209.MaxLevel = 30
+ZoneScaling.Zone.209.LevelOffset = 1
+
+# The Stockade (Zone 717)
+ZoneScaling.Zone.717.MinLevel = 22
+ZoneScaling.Zone.717.MaxLevel = 30
+ZoneScaling.Zone.717.LevelOffset = 1
+
+# Wailing Caverns (Zone 718)
+ZoneScaling.Zone.718.MinLevel = 15
+ZoneScaling.Zone.718.MaxLevel = 25
+ZoneScaling.Zone.718.LevelOffset = 1
+
+# Razorfen Kraul (Zone 491)
+ZoneScaling.Zone.491.MinLevel = 20
+ZoneScaling.Zone.491.MaxLevel = 30
+ZoneScaling.Zone.491.LevelOffset = 1
+
+# Blackfathom Deeps (Zone 719)
+ZoneScaling.Zone.719.MinLevel = 18
+ZoneScaling.Zone.719.MaxLevel = 28
+ZoneScaling.Zone.719.LevelOffset = 1
+
+# Uldaman (Zone 1337)
+ZoneScaling.Zone.1337.MinLevel = 35
+ZoneScaling.Zone.1337.MaxLevel = 45
+ZoneScaling.Zone.1337.LevelOffset = 1
+
+# Gnomeregan (Zone 721)
+ZoneScaling.Zone.721.MinLevel = 28
+ZoneScaling.Zone.721.MaxLevel = 38
+ZoneScaling.Zone.721.LevelOffset = 1
+
+# Sunken Temple (Atal'Hakkar) (Zone 1477) - der findes ogsaa en aeldre dubletzone 1417 i DBC'en - brug .gps hvis 1477 ikke rammer
+ZoneScaling.Zone.1477.MinLevel = 50
+ZoneScaling.Zone.1477.MaxLevel = 58
+ZoneScaling.Zone.1477.LevelOffset = 1
+
+# Razorfen Downs (Zone 722)
+ZoneScaling.Zone.722.MinLevel = 35
+ZoneScaling.Zone.722.MaxLevel = 45
+ZoneScaling.Zone.722.LevelOffset = 1
+
+# Zul'Farrak (Zone 1176)
+ZoneScaling.Zone.1176.MinLevel = 42
+ZoneScaling.Zone.1176.MaxLevel = 50
+ZoneScaling.Zone.1176.LevelOffset = 1
+
+# Blackrock Spire (Zone 1583)
+ZoneScaling.Zone.1583.MinLevel = 55
+ZoneScaling.Zone.1583.MaxLevel = 60
+ZoneScaling.Zone.1583.LevelOffset = 1
+
+# Blackrock Depths (Zone 1584)
+ZoneScaling.Zone.1584.MinLevel = 48
+ZoneScaling.Zone.1584.MaxLevel = 58
+ZoneScaling.Zone.1584.LevelOffset = 1
+
+# Stratholme (Zone 2017)
+ZoneScaling.Zone.2017.MinLevel = 55
+ZoneScaling.Zone.2017.MaxLevel = 60
+ZoneScaling.Zone.2017.LevelOffset = 1
+
+# Maraudon (Zone 2100)
+ZoneScaling.Zone.2100.MinLevel = 38
+ZoneScaling.Zone.2100.MaxLevel = 48
+ZoneScaling.Zone.2100.LevelOffset = 1
+
+# Ragefire Chasm (Zone 2437)
+ZoneScaling.Zone.2437.MinLevel = 12
+ZoneScaling.Zone.2437.MaxLevel = 18
+ZoneScaling.Zone.2437.LevelOffset = 1
+
+# Dire Maul (Zone 2557)
+ZoneScaling.Zone.2557.MinLevel = 55
+ZoneScaling.Zone.2557.MaxLevel = 60
+ZoneScaling.Zone.2557.LevelOffset = 1
+
+# Scholomance (Zone 2057)
+ZoneScaling.Zone.2057.MinLevel = 55
+ZoneScaling.Zone.2057.MaxLevel = 60
+ZoneScaling.Zone.2057.LevelOffset = 1
+
+# The Black Morass (Zone 2366)
+ZoneScaling.Zone.2366.MinLevel = 68
+ZoneScaling.Zone.2366.MaxLevel = 70
+ZoneScaling.Zone.2366.LevelOffset = 1
+
+# Utgarde Keep (Zone 206)
+ZoneScaling.Zone.206.MinLevel = 68
+ZoneScaling.Zone.206.MaxLevel = 72
+ZoneScaling.Zone.206.LevelOffset = 1
+
+# Utgarde Pinnacle (Zone 1196)
+ZoneScaling.Zone.1196.MinLevel = 77
+ZoneScaling.Zone.1196.MaxLevel = 80
+ZoneScaling.Zone.1196.LevelOffset = 1
+
+# Drak'Tharon Keep (Zone 4196) - krydsverificeret mod Wowhead
+ZoneScaling.Zone.4196.MinLevel = 74
+ZoneScaling.Zone.4196.MaxLevel = 77
+ZoneScaling.Zone.4196.LevelOffset = 1
+
+# The Nexus (Zone 4265)
+ZoneScaling.Zone.4265.MinLevel = 71
+ZoneScaling.Zone.4265.MaxLevel = 73
+ZoneScaling.Zone.4265.LevelOffset = 1
+
+# Halls of Stone (Zone 4264) - udledt af raekkefoelgen i DBC-dumpet, ikke uafhaengigt bekraeftet - spot-check med .gps anbefales
+ZoneScaling.Zone.4264.MinLevel = 77
+ZoneScaling.Zone.4264.MaxLevel = 80
+ZoneScaling.Zone.4264.LevelOffset = 1
+
+# Halls of Lightning (Zone 4272)
+ZoneScaling.Zone.4272.MinLevel = 78
+ZoneScaling.Zone.4272.MaxLevel = 80
+ZoneScaling.Zone.4272.LevelOffset = 1
+
+# Azjol-Nerub (Zone 4277)
+ZoneScaling.Zone.4277.MinLevel = 72
+ZoneScaling.Zone.4277.MaxLevel = 74
+ZoneScaling.Zone.4277.LevelOffset = 1
+
+# The Violet Hold (Zone 4416)
+ZoneScaling.Zone.4416.MinLevel = 73
+ZoneScaling.Zone.4416.MaxLevel = 75
+ZoneScaling.Zone.4416.LevelOffset = 1
+
+# Gundrak (Zone 4417)
+ZoneScaling.Zone.4417.MinLevel = 75
+ZoneScaling.Zone.4417.MaxLevel = 78
+ZoneScaling.Zone.4417.LevelOffset = 1
+
+# Bemaerkning: Burning Crusade-dungeons (Shadow Labyrinth, Auchenai Crypts,
+# Sethekk Halls, Botanica, Mechanar m.fl.) laa allerede i jeres oprindelige
+# ZoneScaling.AreaIds-liste (som 3789, 3790, 3791, 3847, 3849 osv.) - de har
+# altsaa vaeret aktive hele tiden, bare uden navn og med default-intervallet
+# (MinLevel=1/MaxLevel=80) i stedet for et tunet spaend. Sig til, saa navngiver
+# og tuner jeg dem paa samme maade som ovenfor.
+
+# Stadig ikke fundet: The Oculus, The Culling of Stratholme, Ahn'kahet: The
+# Old Kingdom, The Forge of Souls, Trial of the Champion, Pit of Saron, Halls
+# of Reflection, samt resten af TBC-dungeons (Shattered Halls, Blood Furnace,
+# Hellfire Ramparts, Steamvault, Underbog, Slave Pens, Arcatraz, Magisters'
+# Terrace, Mana-Tombs). Send ".lookup area <navn>"-output for dem, saa foejer
+# jeg dem til.
+#------------------------------------------------------------------------------
+
+
+#------------------------------------------------------------------------------
+# Eksempel: sådan overstyres HP/Dmg/Armor-scaling for en enkelt zone (Westfall).
+# Zone 40 har allerede sine egne MinLevel/MaxLevel ovenfor; nedenstående viser
+# blot syntaksen for også at override stat-diffs og level-offset pr. zone.
+#------------------------------------------------------------------------------
+# ZoneScaling.Zone.40.HPPerLevelDiff = 0.05
+# ZoneScaling.Zone.40.DmgPerLevelDiff = 0.05
+# ZoneScaling.Zone.40.ArmorPerLevelDiff = 0.05
+# ZoneScaling.Zone.40.LevelOffset = 1
+
