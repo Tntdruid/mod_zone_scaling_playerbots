@@ -20,7 +20,8 @@ ZoneScaling.RaidScalingEnable = 1
 # Ekstra scaling pr. spiller/playerbot i raidet (0.02 = 2% pr. medlem).
 ZoneScaling.RaidSizePerPlayerMult = 0.02
 
-# Stat-scaling pr. level forskel mellem mobbens gamle og nye level.
+# HP-scaling er sammensat pr. level (0.05 = 5% ekstra af den aktuelle HP pr. level).
+# Damage og armor skaleres lineært pr. level forskel.
 ZoneScaling.HPPerLevelDiff = 0.05
 ZoneScaling.DmgPerLevelDiff = 0.05
 ZoneScaling.ArmorPerLevelDiff = 0.05
@@ -32,11 +33,10 @@ ZoneScaling.ArmorPerLevelDiff = 0.05
 # lidt hårdere uden at røre resten af verdenen.
 ZoneScaling.LevelOffset = 0
 
-# Udled automatisk MinLevel/MaxLevel for alle konfigurerede zoner/areas fra
-# quest_template. Når aktiv overstyrer dette alle Zone/Area MinLevel/MaxLevel-
-# værdier længere nede i filen, så længe der findes quest-data for zonen - de
-# manuelle værdier fungerer herefter kun som fallback for zoner/areas uden egen
-# quest-data (f.eks. raid- eller PvP-zoner). Areas mappes til deres parent-zone,
+# Udled automatisk MinLevel/MaxLevel for konfigurerede zoner/areas fra
+# quest_template. Når aktiv overstyrer dette manuelle værdier, hvis der findes
+# quest-data. En zone/area kan fravælge autoskalering med dens lokale
+# Zone/Area.<id>.QuestLevelAutoScale = 0. Areas mappes til deres parent-zone,
 # da quests normalt er sorteret pr. zone og ikke pr. subzone/area.
 ZoneScaling.QuestLevelAutoScale = 1
 
@@ -48,11 +48,10 @@ ZoneScaling.Default.MaxLevel = 80
 ZoneScaling.LevelBand = 1
 
 # Hvor ofte (sekunder) en creature, der IKKE er i kamp, må tjekkes igen og evt.
-# re-skaleres til den nærmeste spiller. En creature bliver desuden altid
-# re-skaleret til den faktiske modstander i det øjeblik den går i kamp - denne
-# indstilling styrer kun den passive "hold øje med hvem der er i nærheden"-del.
-# 0 slår den passive re-check fra (kun spawn + combat-entry skalerer så).
-ZoneScaling.RescaleIntervalSec = 30
+# re-skaleres til den nærmeste spiller. 0 undgår at idle-creatures skifter level,
+# når spillere med forskellige levels bevæger sig rundt. Combat-entry skalerer
+# stadig til den faktiske modstander, når creature går i kamp.
+ZoneScaling.RescaleIntervalSec = 0
 
 
 #------------------------------------------------------------------------------
@@ -86,7 +85,7 @@ ZoneScaling.Area.4221.MaxLevel = 75
 # egne Zone.<id>.* indstillinger nedenfor bruger ZoneScaling.Default.* ovenfor
 # (eller quest_template-data, når QuestLevelAutoScale=1 og data findes).
 #------------------------------------------------------------------------------
-ZoneScaling.ZoneIds = 1,3,4,8,10,11,12,14,15,16,17,28,33,36,38,40,41,44,45,46,47,51,65,66,67,85,130,139,141,148,215,267,331,357,361,394,400,405,406,440,490,493,495,618,3430,3433,3483,3484,3485,3486,3487,3488,3518,3519,3520,3524,3537,3703,3711,3712,4197,4298,1581,209,717,718,491,719,1337,721,1477,722,1176,1583,1584,2017,2100,2437,2557,2057,2366,206,1196,4196,4265,4264,4272,4277,4416,4417
+ZoneScaling.ZoneIds = 1,3,4,8,10,11,12,14,15,16,17,28,33,36,38,40,41,44,45,46,47,51,65,66,67,85,130,139,141,148,215,267,331,357,361,394,400,405,406,440,490,493,495,618,3430,3433,3483,3484,3485,3486,3487,3488,3518,3519,3520,3524,3525,3537,3703,3711,3712,4197,4298,1581,209,717,718,491,719,1337,721,1477,722,1176,1583,1584,2017,2100,2437,2557,2057,2366,206,1196,4196,4265,4264,4272,4277,4416,4417
 
 # Zoner uden Zone.<id>.MinLevel/MaxLevel herunder (f.eks. Outland/Northrend-
 # zoner som Hellfire Peninsula, Icecrown, Wintergrasp osv.) er bevidst ikke
@@ -187,6 +186,9 @@ ZoneScaling.Zone.495.MaxLevel = 72
 ZoneScaling.Zone.618.MinLevel = 55  # Winterspring
 ZoneScaling.Zone.618.MaxLevel = 60
 ZoneScaling.Zone.3524.MaxLevel = 10  # Azuremyst Isle (start zone)
+ZoneScaling.Zone.3525.MinLevel = 10  # Bloodmyst Isle
+ZoneScaling.Zone.3525.MaxLevel = 20
+ZoneScaling.Zone.3525.QuestLevelAutoScale = 0
 
 
 #------------------------------------------------------------------------------

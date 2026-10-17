@@ -7,7 +7,5 @@
 			"path": "../../../azerothcore-wotlk"
 		}
 	],
-	"settings": {
-		"powershell.cwd": "mod_zone_scaling_playerbots"
-	}
+	"settings": {}
 }

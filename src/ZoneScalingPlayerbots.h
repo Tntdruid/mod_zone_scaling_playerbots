@@ -29,6 +29,11 @@ public:
     // search entirely for creatures that were already scaled recently.
     bool IsDueForPassiveScale(ObjectGuid guid) const;
 
+    // True once the creature has been scaled to a player opponent during its
+    // current fight. Cleared again when the creature leaves combat.
+    bool IsCombatScaled(ObjectGuid guid) const;
+    void ClearCombatScaled(ObjectGuid guid);
+
     void ForgetCreature(ObjectGuid guid) { _scaledCreatures.erase(guid); }
 
 private:
@@ -36,6 +41,7 @@ private:
     {
         uint8 minLevel = 1;
         uint8 maxLevel = 83;
+        int32 levelOffset = 0;
         float hpDiff = 0.05f;
         float dmgDiff = 0.05f;
         float armorDiff = 0.05f;
@@ -52,6 +58,7 @@ private:
         float baseMinDamage = 0.0f;
         float baseMaxDamage = 0.0f;
         uint32 baseArmor = 0;
+        bool combatScaled = false; // scaled to a player opponent in the current fight
     };
 
     ZoneScalingPB() = default;

@@ -6,6 +6,7 @@
 #include "Log.h"
 #include "UnitScript.h"
 #include <algorithm>
+#include <cmath>
 #include <ctime>
 #include <limits>
 #include <sstream>
@@ -44,12 +45,13 @@ void ZoneScalingPB::LoadConfig()
     _armorDiff = sConfigMgr->GetOption<float>("ZoneScaling.ArmorPerLevelDiff", 0.05f);
     _raidSizePerPlayerMult = sConfigMgr->GetOption<float>("ZoneScaling.RaidSizePerPlayerMult", 0.02f);
     _levelBand = sConfigMgr->GetOption<uint8>("ZoneScaling.LevelBand", 1);
-    _rescaleIntervalSec = sConfigMgr->GetOption<uint32>("ZoneScaling.RescaleIntervalSec", 30);
+    _rescaleIntervalSec = sConfigMgr->GetOption<uint32>("ZoneScaling.RescaleIntervalSec", 0);
     if (_levelBand == 0)
         _levelBand = 1;
 
     _defaultZoneSettings.maxLevel = sConfigMgr->GetOption<uint8>("ZoneScaling.Default.MaxLevel", 255);
     _defaultZoneSettings.minLevel = _minLevel;
+    _defaultZoneSettings.levelOffset = sConfigMgr->GetOption<int32>("ZoneScaling.LevelOffset", 0);
     _defaultZoneSettings.hpDiff = _hpDiff;
     _defaultZoneSettings.dmgDiff = _dmgDiff;
     _defaultZoneSettings.armorDiff = _armorDiff;
@@ -65,14 +67,16 @@ void ZoneScalingPB::LoadConfig()
     {
         ZoneSettings settings = _defaultZoneSettings;
         std::string prefix = "ZoneScaling.Zone." + std::to_string(zoneId) + ".";
-        int32 confMinLevel = sConfigMgr->GetOption<int32>(prefix + "MinLevel", -1);
-        int32 confMaxLevel = sConfigMgr->GetOption<int32>(prefix + "MaxLevel", -1);
+        int32 confMinLevel = sConfigMgr->GetOption<int32>(prefix + "MinLevel", -1, false);
+        int32 confMaxLevel = sConfigMgr->GetOption<int32>(prefix + "MaxLevel", -1, false);
+        bool questLevelAutoScale = sConfigMgr->GetOption<bool>(prefix + "QuestLevelAutoScale", _questLevelAutoScale, false);
         if (confMinLevel >= 0)
             settings.minLevel = uint8(confMinLevel);
         if (confMaxLevel >= 0)
             settings.maxLevel = uint8(confMaxLevel);
+        settings.levelOffset = sConfigMgr->GetOption<int32>(prefix + "LevelOffset", settings.levelOffset, false);
 
-        if (_questLevelAutoScale)
+        if (questLevelAutoScale)
         {
             uint8 questMinLevel, questMaxLevel;
             if (GetQuestLevelRangeForZone(zoneId, questMinLevel, questMaxLevel))
@@ -82,9 +86,9 @@ void ZoneScalingPB::LoadConfig()
             }
         }
 
-        settings.hpDiff = sConfigMgr->GetOption<float>(prefix + "HPPerLevelDiff", settings.hpDiff);
-        settings.dmgDiff = sConfigMgr->GetOption<float>(prefix + "DmgPerLevelDiff", settings.dmgDiff);
-        settings.armorDiff = sConfigMgr->GetOption<float>(prefix + "ArmorPerLevelDiff", settings.armorDiff);
+        settings.hpDiff = sConfigMgr->GetOption<float>(prefix + "HPPerLevelDiff", settings.hpDiff, false);
+        settings.dmgDiff = sConfigMgr->GetOption<float>(prefix + "DmgPerLevelDiff", settings.dmgDiff, false);
+        settings.armorDiff = sConfigMgr->GetOption<float>(prefix + "ArmorPerLevelDiff", settings.armorDiff, false);
         _zoneSettings[zoneId] = settings;
     }
 
@@ -96,14 +100,16 @@ void ZoneScalingPB::LoadConfig()
     {
         ZoneSettings settings = _defaultZoneSettings;
         std::string prefix = "ZoneScaling.Area." + std::to_string(areaId) + ".";
-        int32 confMinLevel = sConfigMgr->GetOption<int32>(prefix + "MinLevel", -1);
-        int32 confMaxLevel = sConfigMgr->GetOption<int32>(prefix + "MaxLevel", -1);
+        int32 confMinLevel = sConfigMgr->GetOption<int32>(prefix + "MinLevel", -1, false);
+        int32 confMaxLevel = sConfigMgr->GetOption<int32>(prefix + "MaxLevel", -1, false);
+        bool questLevelAutoScale = sConfigMgr->GetOption<bool>(prefix + "QuestLevelAutoScale", _questLevelAutoScale, false);
         if (confMinLevel >= 0)
             settings.minLevel = uint8(confMinLevel);
         if (confMaxLevel >= 0)
             settings.maxLevel = uint8(confMaxLevel);
+        settings.levelOffset = sConfigMgr->GetOption<int32>(prefix + "LevelOffset", settings.levelOffset, false);
 
-        if (_questLevelAutoScale)
+        if (questLevelAutoScale)
         {
             AreaTableEntry const* areaEntry = sAreaTableStore.LookupEntry(areaId);
             uint32 questZoneId = (areaEntry && areaEntry->zone) ? areaEntry->zone : areaId;
@@ -116,9 +122,9 @@ void ZoneScalingPB::LoadConfig()
             }
         }
 
-        settings.hpDiff = sConfigMgr->GetOption<float>(prefix + "HPPerLevelDiff", settings.hpDiff);
-        settings.dmgDiff = sConfigMgr->GetOption<float>(prefix + "DmgPerLevelDiff", settings.dmgDiff);
-        settings.armorDiff = sConfigMgr->GetOption<float>(prefix + "ArmorPerLevelDiff", settings.armorDiff);
+        settings.hpDiff = sConfigMgr->GetOption<float>(prefix + "HPPerLevelDiff", settings.hpDiff, false);
+        settings.dmgDiff = sConfigMgr->GetOption<float>(prefix + "DmgPerLevelDiff", settings.dmgDiff, false);
+        settings.armorDiff = sConfigMgr->GetOption<float>(prefix + "ArmorPerLevelDiff", settings.armorDiff, false);
         _areaSettings[areaId] = settings;
     }
 
@@ -160,6 +166,19 @@ bool ZoneScalingPB::IsDueForPassiveScale(ObjectGuid guid) const
     return uint32(::time(nullptr)) >= it->second.nextEvalTime;
 }
 
+bool ZoneScalingPB::IsCombatScaled(ObjectGuid guid) const
+{
+    auto it = _scaledCreatures.find(guid);
+    return it != _scaledCreatures.end() && it->second.combatScaled;
+}
+
+void ZoneScalingPB::ClearCombatScaled(ObjectGuid guid)
+{
+    auto it = _scaledCreatures.find(guid);
+    if (it != _scaledCreatures.end())
+        it->second.combatScaled = false;
+}
+
 void ZoneScalingPB::ScaleCreatureToPlayer(Creature* creature, Player* player, bool force)
 {
     if (!_enabled || !creature || !player)
@@ -177,8 +196,10 @@ void ZoneScalingPB::ScaleCreatureToPlayer(Creature* creature, Player* player, bo
     if (!GetSettingsFor(creature, player, settings))
         return;
 
-    uint8 baseLevel = std::max<uint8>(player->GetLevel(), settings.minLevel);
-    baseLevel = std::min<uint8>(baseLevel, settings.maxLevel);
+    int32 targetLevel = int32(player->GetLevel()) + settings.levelOffset;
+    targetLevel = std::max(targetLevel, int32(settings.minLevel));
+    targetLevel = std::min(targetLevel, int32(settings.maxLevel));
+    uint8 baseLevel = uint8(targetLevel);
 
     if (_levelBand > 1)
     {
@@ -216,6 +237,8 @@ void ZoneScalingPB::ScaleCreatureToPlayer(Creature* creature, Player* player, bo
     {
         existing->second.level = newLevel;
         existing->second.nextEvalTime = now + _rescaleIntervalSec;
+        if (force)
+            existing->second.combatScaled = true;
     };
 
     uint8 oldLevel = creature->GetLevel();
@@ -230,7 +253,7 @@ void ZoneScalingPB::ScaleCreatureToPlayer(Creature* creature, Player* player, bo
     float healthPct = oldMaxHealth ? float(oldHealth) / float(oldMaxHealth) : 1.0f;
     int16 levelDiff = int16(newLevel) - int16(existing->second.baseLevel);
 
-    float healthMultiplier = 1.0f + (settings.hpDiff * levelDiff);
+    float healthMultiplier = std::pow(1.0f + settings.hpDiff, levelDiff);
     float damageMultiplier = 1.0f + (settings.dmgDiff * levelDiff);
     float armorMultiplier = 1.0f + (settings.armorDiff * levelDiff);
 
@@ -268,12 +291,26 @@ void ZoneScalingPB::ScaleCreatureToPlayer(Creature* creature, Player* player, bo
     scheduleNextPassiveCheck();
 }
 
+// Creatures that should never be scaled. Triggers are the invisible helper
+// creatures the core uses to cast spells for game objects (campfires, traps,
+// braziers ...), so scaling them would make e.g. a campfire hit harder.
+static bool IsScalableCreature(Creature const* creature)
+{
+    if (creature->IsPet() || creature->IsTotem() || creature->IsCritter())
+        return false;
+
+    if (creature->IsTrigger() || creature->HasUnitFlag(UNIT_FLAG_NOT_SELECTABLE))
+        return false;
+
+    return true;
+}
+
 class ZoneScalingPB_AllCreatureScript : public AllCreatureScript
 {
 public:
     ZoneScalingPB_AllCreatureScript() : AllCreatureScript("ZoneScalingPB_AllCreatureScript") { }
 
-    void OnAllCreatureUpdate(Creature* creature, uint32 /*diff*/)
+    void OnAllCreatureUpdate(Creature* creature, uint32 /*diff*/) override
     {
         if (!ZoneScalingPB::instance()->IsEnabled())
             return;
@@ -281,14 +318,27 @@ public:
         if (!creature->IsAlive())
             return;
 
-        if (creature->IsPet() || creature->IsTotem() || creature->IsCritter())
+        if (!IsScalableCreature(creature))
             return;
 
-        // Mid-fight rescaling is handled by ZoneScalingPB_UnitScript::OnUnitEnterCombat
-        // instead - changing a creature's level/stats while it's already trading
-        // blows with someone would be jarring and can desync in-flight combat math.
+        // Combat rescaling normally happens once, in ZoneScalingPB_UnitScript::OnUnitEnterCombat.
+        // If the creature entered combat against something that isn't a player
+        // (an NPC, or a pet/guardian without a player owner) it wasn't scaled then,
+        // so catch up as soon as its victim is a player (or a player's pet), e.g.
+        // a bot in the party. After that it keeps its level for the rest of the fight.
         if (creature->IsInCombat())
+        {
+            if (ZoneScalingPB::instance()->IsCombatScaled(creature->GetGUID()))
+                return;
+
+            Unit* victim = creature->GetVictim();
+            Player* victimPlayer = victim ? victim->GetCharmerOrOwnerPlayerOrPlayerItself() : nullptr;
+            if (victimPlayer && !victimPlayer->IsGameMaster())
+                ZoneScalingPB::instance()->ScaleCreatureToPlayer(creature, victimPlayer, true);
             return;
+        }
+
+        ZoneScalingPB::instance()->ClearCombatScaled(creature->GetGUID());
 
         // Cheap check first: most creatures were already scaled recently and are
         // not due for another look, so skip the player search entirely for them.
@@ -357,14 +407,61 @@ public:
             return;
 
         Creature* creature = unit ? unit->ToCreature() : nullptr;
-        Player* player = enemy ? enemy->ToPlayer() : nullptr;
-        if (!creature || !player)
+        // Pets, guardians and totems (including those of playerbots) count as
+        // their owning player, so the creature scales to the owner's level.
+        Player* player = enemy ? enemy->GetCharmerOrOwnerPlayerOrPlayerItself() : nullptr;
+        if (player && player->IsGameMaster())
+            player = nullptr;
+
+        if (!creature)
             return;
 
         if (!creature->IsAlive())
             return;
 
-        if (creature->IsPet() || creature->IsTotem() || creature->IsCritter())
+        if (!IsScalableCreature(creature))
+            return;
+
+        if (!player)
+        {
+            Map* map = creature->GetMap();
+            if (!map)
+                return;
+
+            Map::PlayerList const& players = map->GetPlayers();
+            Player* nearestFriendlyPlayer = nullptr;
+            float closestDistSq = std::numeric_limits<float>::max();
+            uint32 creatureZoneId = creature->GetZoneId();
+            uint32 creatureAreaId = creature->GetAreaId();
+            bool hasAreaSettings = ZoneScalingPB::instance()->HasAreaSettings(creatureAreaId);
+
+            for (Map::PlayerList::const_iterator itr = players.begin(); itr != players.end(); ++itr)
+            {
+                Player* candidate = itr->GetSource();
+                if (!candidate || !candidate->IsInWorld() || candidate->IsGameMaster())
+                    continue;
+
+                if (candidate->GetZoneId() != creatureZoneId)
+                    continue;
+
+                if (hasAreaSettings && candidate->GetAreaId() != creatureAreaId)
+                    continue;
+
+                if (!creature->IsFriendlyTo(candidate))
+                    continue;
+
+                float distSq = creature->GetExactDistSq(candidate);
+                if (!nearestFriendlyPlayer || distSq < closestDistSq)
+                {
+                    nearestFriendlyPlayer = candidate;
+                    closestDistSq = distSq;
+                }
+            }
+
+            player = nearestFriendlyPlayer;
+        }
+
+        if (!player)
             return;
 
         ZoneScalingPB::instance()->ScaleCreatureToPlayer(creature, player, true);
