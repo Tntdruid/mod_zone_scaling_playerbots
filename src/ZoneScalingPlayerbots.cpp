@@ -1,5 +1,6 @@
 #include "ZoneScalingPlayerbots.h"
 #include "AllCreatureScript.h"
+#include "AllMapScript.h"
 #include "AllSpellScript.h"
 #include "DatabaseEnv.h"
 #include "DBCStores.h"
@@ -13,21 +14,47 @@
 #include <ctime>
 #include <limits>
 #include <sstream>
+#include <vector>
 
 bool ZoneScalingPB::GetQuestLevelRangeForZone(uint32 zoneId, uint8& minLevel, uint8& maxLevel) const
 {
     QueryResult result = WorldDatabase.Query(
-        "SELECT MIN(QuestLevel), MAX(QuestLevel) FROM quest_template WHERE QuestSortID = {} AND QuestLevel > 0", zoneId);
+        "SELECT QuestLevel FROM quest_template WHERE QuestSortID = {} AND QuestLevel > 0 ORDER BY QuestLevel", zoneId);
     if (!result)
         return false;
 
-    Field* fields = result->Fetch();
-    if (fields[0].IsNull() || fields[1].IsNull())
-        return false;
+    std::vector<int32> levels;
+    do
+    {
+        levels.push_back(int32(result->Fetch()[0].Get<int16>()));
+    } while (result->NextRow());
 
-    minLevel = fields[0].Get<uint8>();
-    maxLevel = fields[1].Get<uint8>();
+    // Some quests are sorted into the wrong zone or belong to holiday events
+    // (e.g. level 39-44 quests under Loch Modan, level 75 under Dun Morogh), so
+    // plain MIN/MAX stretches the range far beyond the zone's real levels.
+    // Start at the median quest level and grow the range outwards for as long
+    // as the next quest level is at most MaxQuestLevelGap levels away.
+    static int32 const MaxQuestLevelGap = 5;
+    size_t low = levels.size() / 2;
+    size_t high = low;
+    while (low > 0 && levels[low] - levels[low - 1] <= MaxQuestLevelGap)
+        --low;
+    while (high + 1 < levels.size() && levels[high + 1] - levels[high] <= MaxQuestLevelGap)
+        ++high;
+
+    minLevel = uint8(std::min<int32>(levels[low], 255));
+    maxLevel = uint8(std::min<int32>(levels[high], 255));
     return true;
+}
+
+// Dungeons and raids. Their quest data is a poor guide (heroic dailies sit at
+// level 80 next to the normal-mode quests), so they only use the manual
+// MinLevel/MaxLevel from the config.
+static bool IsInstanceZone(uint32 zoneId)
+{
+    AreaTableEntry const* areaEntry = sAreaTableStore.LookupEntry(zoneId);
+    MapEntry const* mapEntry = areaEntry ? sMapStore.LookupEntry(areaEntry->mapid) : nullptr;
+    return mapEntry && mapEntry->IsDungeon();
 }
 
 ZoneScalingPB* ZoneScalingPB::instance()
@@ -49,6 +76,7 @@ void ZoneScalingPB::LoadConfig()
     _raidSizePerPlayerMult = sConfigMgr->GetOption<float>("ZoneScaling.RaidSizePerPlayerMult", 0.02f);
     _levelBand = sConfigMgr->GetOption<uint8>("ZoneScaling.LevelBand", 1);
     _rescaleIntervalSec = sConfigMgr->GetOption<uint32>("ZoneScaling.RescaleIntervalSec", 0);
+    _dungeonBossLevelOffset = sConfigMgr->GetOption<uint8>("ZoneScaling.DungeonBossLevelOffset", 2);
     if (_levelBand == 0)
         _levelBand = 1;
 
@@ -62,6 +90,7 @@ void ZoneScalingPB::LoadConfig()
     _zoneSettings.clear();
     _areaSettings.clear();
     _scaledCreatures.clear();
+    _instanceLevels.clear();
 
     _excludedEntries.clear();
     std::string excludedEntries = sConfigMgr->GetOption<std::string>("ZoneScaling.ExcludeCreatureEntries",
@@ -89,7 +118,7 @@ void ZoneScalingPB::LoadConfig()
             settings.maxLevel = uint8(confMaxLevel);
         settings.levelOffset = sConfigMgr->GetOption<int32>(prefix + "LevelOffset", settings.levelOffset, false);
 
-        if (questLevelAutoScale)
+        if (questLevelAutoScale && !IsInstanceZone(zoneId))
         {
             uint8 questMinLevel, questMaxLevel;
             if (GetQuestLevelRangeForZone(zoneId, questMinLevel, questMaxLevel))
@@ -122,10 +151,10 @@ void ZoneScalingPB::LoadConfig()
             settings.maxLevel = uint8(confMaxLevel);
         settings.levelOffset = sConfigMgr->GetOption<int32>(prefix + "LevelOffset", settings.levelOffset, false);
 
-        if (questLevelAutoScale)
+        AreaTableEntry const* areaEntry = sAreaTableStore.LookupEntry(areaId);
+        uint32 questZoneId = (areaEntry && areaEntry->zone) ? areaEntry->zone : areaId;
+        if (questLevelAutoScale && !IsInstanceZone(questZoneId))
         {
-            AreaTableEntry const* areaEntry = sAreaTableStore.LookupEntry(areaId);
-            uint32 questZoneId = (areaEntry && areaEntry->zone) ? areaEntry->zone : areaId;
 
             uint8 questMinLevel, questMaxLevel;
             if (GetQuestLevelRangeForZone(questZoneId, questMinLevel, questMaxLevel))
@@ -165,6 +194,37 @@ bool ZoneScalingPB::GetSettingsFor(Creature const* creature, Player const* playe
 
     out = areaSettings != _areaSettings.end() ? areaSettings->second : zoneSettings->second;
     return true;
+}
+
+uint8 ZoneScalingPB::GetInstanceLevel(Map* map, Player* player, ZoneSettings const& settings)
+{
+    auto locked = _instanceLevels.find(map->GetInstanceId());
+    if (locked != _instanceLevels.end())
+        return locked->second;
+
+    // Bots usually zone in a moment after their leader, so look at the whole
+    // group as well as whoever is already inside.
+    uint8 highest = player->GetLevel();
+    Map::PlayerList const& players = map->GetPlayers();
+    for (Map::PlayerList::const_iterator itr = players.begin(); itr != players.end(); ++itr)
+        if (Player* inside = itr->GetSource())
+            if (!inside->IsGameMaster())
+                highest = std::max(highest, inside->GetLevel());
+
+    if (Group* group = player->GetGroup())
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+            if (Player* member = ref->GetSource())
+                highest = std::max(highest, member->GetLevel());
+
+    int32 level = int32(highest) + settings.levelOffset;
+    level = std::max(level, int32(settings.minLevel));
+    level = std::min(level, int32(settings.maxLevel));
+    uint8 instanceLevel = uint8(std::clamp(level, 1, 255));
+
+    _instanceLevels[map->GetInstanceId()] = instanceLevel;
+    LOG_DEBUG("module", "ZoneScalingPlayerbots: map {} instance {} locked to level {}",
+        map->GetId(), map->GetInstanceId(), instanceLevel);
+    return instanceLevel;
 }
 
 bool ZoneScalingPB::IsDueForPassiveScale(ObjectGuid guid) const
@@ -245,6 +305,26 @@ void ZoneScalingPB::ScaleCreatureToPlayer(Creature* creature, Player* player, bo
         newLevel = baseLevel;
     }
 
+    Map* map = creature->GetMap();
+    if (map && map->IsDungeon())
+    {
+        uint8 nativeLevel = existing != _scaledCreatures.end() ? existing->second.baseLevel : creature->GetLevel();
+        if (map->IsRaid() || map->IsHeroic())
+        {
+            // Heroic and raid creatures already have the right levels; only the
+            // raid-size multiplier below applies to them.
+            newLevel = nativeLevel;
+        }
+        else
+        {
+            // One level for the whole run, bosses keep their lead over trash.
+            uint16 instanceLevel = GetInstanceLevel(map, player, settings);
+            if (creature->IsDungeonBoss())
+                instanceLevel += _dungeonBossLevelOffset;
+            newLevel = uint8(std::min<uint16>(instanceLevel, 255));
+        }
+    }
+
     if (existing != _scaledCreatures.end() && existing->second.lockedLevel)
         newLevel = existing->second.lockedLevel;
 
@@ -267,8 +347,10 @@ void ZoneScalingPB::ScaleCreatureToPlayer(Creature* creature, Player* player, bo
             existing->second.combatScaled = true;
     };
 
+    // Skip creatures that already got this exact scaling. A creature still at
+    // its native level gets one pass anyway, so the raid multiplier applies.
     uint8 oldLevel = creature->GetLevel();
-    if (oldLevel == newLevel)
+    if (oldLevel == newLevel && existing->second.level == newLevel)
     {
         scheduleNextPassiveCheck();
         return;
@@ -283,7 +365,6 @@ void ZoneScalingPB::ScaleCreatureToPlayer(Creature* creature, Player* player, bo
     float damageMultiplier = 1.0f + (settings.dmgDiff * levelDiff);
     float armorMultiplier = 1.0f + (settings.armorDiff * levelDiff);
 
-    Map* map = creature->GetMap();
     Group* group = player->GetGroup();
     if (_raidScaling && map && map->IsRaid() && group && group->isRaidGroup())
     {
@@ -526,6 +607,20 @@ private:
     static constexpr uint32 SPELL_TAME_BEAST = 1515;
 };
 
+// Drops an instance's locked level when the instance is unloaded, since the
+// core reuses instance ids.
+class ZoneScalingPB_AllMapScript : public AllMapScript
+{
+public:
+    ZoneScalingPB_AllMapScript() : AllMapScript("ZoneScalingPB_AllMapScript") { }
+
+    void OnDestroyMap(Map* map) override
+    {
+        if (map && map->IsDungeon())
+            ZoneScalingPB::instance()->ForgetInstance(map->GetInstanceId());
+    }
+};
+
 class ZoneScalingPB_WorldScript : public WorldScript
 {
 public:
@@ -543,6 +638,7 @@ void AddZoneScalingPlayerbotsScripts()
     new ZoneScalingPB_AllCreatureScript();
     new ZoneScalingPB_UnitScript();
     new ZoneScalingPB_AllSpellScript();
+    new ZoneScalingPB_AllMapScript();
 }
 
 void Addmod_zone_scaling_playerbotsScripts()

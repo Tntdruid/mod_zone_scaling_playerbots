@@ -42,6 +42,7 @@ public:
     void LockCreatureForTaming(Creature* creature, Player* hunter);
 
     void ForgetCreature(ObjectGuid guid) { _scaledCreatures.erase(guid); }
+    void ForgetInstance(uint32 instanceId) { _instanceLevels.erase(instanceId); }
 
 private:
     struct ZoneSettings
@@ -79,6 +80,11 @@ private:
     // creature's area nor the player's zone is configured for scaling.
     bool GetSettingsFor(Creature const* creature, Player const* player, ZoneSettings& out) const;
 
+    // Level that every creature in a normal dungeon instance scales to. Picked
+    // once, from the highest-level player in the instance or in that player's
+    // group, and then kept until the instance is unloaded.
+    uint8 GetInstanceLevel(Map* map, Player* player, ZoneSettings const& settings);
+
     bool _enabled = false;
     bool _raidScaling = true;
     bool _questLevelAutoScale = false;
@@ -99,6 +105,9 @@ private:
     // entry (via ZoneScalingPB_UnitScript).
     uint32 _rescaleIntervalSec = 30;
 
+    // Extra levels dungeon bosses get on top of the instance level.
+    uint8 _dungeonBossLevelOffset = 2;
+
     ZoneSettings _defaultZoneSettings;
     std::unordered_map<uint32, ZoneSettings> _zoneSettings;
     std::unordered_map<uint32, ZoneSettings> _areaSettings;
@@ -107,6 +116,9 @@ private:
     // Creature entries that are never scaled (e.g. Taming the Beast targets,
     // whose taming rods refuse beasts above a fixed level).
     std::unordered_set<uint32> _excludedEntries;
+
+    // instance id -> locked level for normal dungeons
+    std::unordered_map<uint32, uint8> _instanceLevels;
 };
 
 #endif

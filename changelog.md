@@ -16,6 +16,10 @@
 
 ### Fixed
 
+- Normal dungeons now scale to one level for the whole run (the highest level among the players and bots in the instance or their group), so mobs no longer get different levels depending on who they saw first. Dungeon bosses get `ZoneScaling.DungeonBossLevelOffset` (default 2) extra levels. Heroic dungeons and raids keep their native levels, and dungeons use only the manual MinLevel/MaxLevel instead of quest-derived ranges.
+
+- Quest-derived zone level ranges now ignore stray quests (wrong zone or holiday quests): the range grows from the median quest level and stops at jumps of more than 5 levels. Loch Modan goes from 10-44 to 10-22.
+
 - Hunters can tame beasts that this module scaled above their level: Tame Beast now drops the beast to the hunter's level when the cast starts.
 
 - Taming the Beast quest beasts are no longer scaled, so hunter taming rods work again. The list is configurable via `ZoneScaling.ExcludeCreatureEntries`.
