@@ -36,6 +36,11 @@ public:
     bool IsCombatScaled(ObjectGuid guid) const;
     void ClearCombatScaled(ObjectGuid guid);
 
+    // Called when a hunter starts Tame Beast on a creature this module scaled
+    // above the hunter's level: locks it to the hunter's level for the rest of
+    // its life, so the core's "too high level" tame check passes.
+    void LockCreatureForTaming(Creature* creature, Player* hunter);
+
     void ForgetCreature(ObjectGuid guid) { _scaledCreatures.erase(guid); }
 
 private:
@@ -61,6 +66,7 @@ private:
         float baseMaxDamage = 0.0f;
         uint32 baseArmor = 0;
         bool combatScaled = false; // scaled to a player opponent in the current fight
+        uint8 lockedLevel = 0;     // non-zero: always use this level (set by Tame Beast)
     };
 
     ZoneScalingPB() = default;

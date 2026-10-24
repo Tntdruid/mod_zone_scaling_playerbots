@@ -1,9 +1,12 @@
 #include "ZoneScalingPlayerbots.h"
 #include "AllCreatureScript.h"
+#include "AllSpellScript.h"
 #include "DatabaseEnv.h"
 #include "DBCStores.h"
 #include "Group.h"
 #include "Log.h"
+#include "Spell.h"
+#include "SpellInfo.h"
 #include "UnitScript.h"
 #include <algorithm>
 #include <cmath>
@@ -189,6 +192,16 @@ void ZoneScalingPB::ClearCombatScaled(ObjectGuid guid)
         it->second.combatScaled = false;
 }
 
+void ZoneScalingPB::LockCreatureForTaming(Creature* creature, Player* hunter)
+{
+    auto existing = _scaledCreatures.find(creature->GetGUID());
+    if (existing == _scaledCreatures.end() || creature->GetLevel() <= hunter->GetLevel())
+        return; // not scaled by us, or already low enough
+
+    existing->second.lockedLevel = hunter->GetLevel();
+    ScaleCreatureToPlayer(creature, hunter, true);
+}
+
 void ZoneScalingPB::ScaleCreatureToPlayer(Creature* creature, Player* player, bool force)
 {
     if (!_enabled || !creature || !player)
@@ -231,6 +244,9 @@ void ZoneScalingPB::ScaleCreatureToPlayer(Creature* creature, Player* player, bo
     {
         newLevel = baseLevel;
     }
+
+    if (existing != _scaledCreatures.end() && existing->second.lockedLevel)
+        newLevel = existing->second.lockedLevel;
 
     if (existing == _scaledCreatures.end())
     {
@@ -481,6 +497,35 @@ public:
     }
 };
 
+// Hunters can only tame beasts up to their own level. When this module has
+// scaled a beast above the hunter, drop it to the hunter's level as the cast
+// starts (this hook runs before the Tame Beast spell script's level check).
+class ZoneScalingPB_AllSpellScript : public AllSpellScript
+{
+public:
+    ZoneScalingPB_AllSpellScript() : AllSpellScript("ZoneScalingPB_AllSpellScript") { }
+
+    void OnSpellCheckCast(Spell* spell, bool /*strict*/, SpellCastResult& /*res*/) override
+    {
+        if (!ZoneScalingPB::instance()->IsEnabled())
+            return;
+
+        if (spell->GetSpellInfo()->Id != SPELL_TAME_BEAST)
+            return;
+
+        Player* hunter = spell->GetCaster() ? spell->GetCaster()->ToPlayer() : nullptr;
+        Unit* target = spell->m_targets.GetUnitTarget();
+        Creature* creature = target ? target->ToCreature() : nullptr;
+        if (!hunter || !creature || !creature->IsAlive())
+            return;
+
+        ZoneScalingPB::instance()->LockCreatureForTaming(creature, hunter);
+    }
+
+private:
+    static constexpr uint32 SPELL_TAME_BEAST = 1515;
+};
+
 class ZoneScalingPB_WorldScript : public WorldScript
 {
 public:
@@ -497,6 +542,7 @@ void AddZoneScalingPlayerbotsScripts()
     new ZoneScalingPB_WorldScript();
     new ZoneScalingPB_AllCreatureScript();
     new ZoneScalingPB_UnitScript();
+    new ZoneScalingPB_AllSpellScript();
 }
 
 void Addmod_zone_scaling_playerbotsScripts()

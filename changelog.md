@@ -16,6 +16,8 @@
 
 ### Fixed
 
+- Hunters can tame beasts that this module scaled above their level: Tame Beast now drops the beast to the hunter's level when the cast starts.
+
 - Taming the Beast quest beasts are no longer scaled, so hunter taming rods work again. The list is configurable via `ZoneScaling.ExcludeCreatureEntries`.
 
 - Trigger creatures and unselectable creatures, such as the invisible casters behind campfires and traps, are no longer scaled, so their damage stays unchanged.
