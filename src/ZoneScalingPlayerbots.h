@@ -8,6 +8,7 @@
 #include "Map.h"
 #include "World.h"
 #include <unordered_map>
+#include <unordered_set>
 
 class ZoneScalingPB
 {
@@ -17,6 +18,7 @@ public:
     void LoadConfig();
     bool IsEnabled() const { return _enabled; }
     bool HasAreaSettings(uint32 areaId) const { return _areaSettings.find(areaId) != _areaSettings.end(); }
+    bool IsExcludedEntry(uint32 entry) const { return _excludedEntries.count(entry) != 0; }
 
     // force=false (passive pass): only rescales creatures that have never been
     // scaled yet, or whose passive re-check interval has elapsed. Used for the
@@ -95,6 +97,10 @@ private:
     std::unordered_map<uint32, ZoneSettings> _zoneSettings;
     std::unordered_map<uint32, ZoneSettings> _areaSettings;
     std::unordered_map<ObjectGuid, ScaleRecord> _scaledCreatures;
+
+    // Creature entries that are never scaled (e.g. Taming the Beast targets,
+    // whose taming rods refuse beasts above a fixed level).
+    std::unordered_set<uint32> _excludedEntries;
 };
 
 #endif

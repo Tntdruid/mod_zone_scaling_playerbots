@@ -16,6 +16,8 @@
 
 ### Fixed
 
+- Taming the Beast quest beasts are no longer scaled, so hunter taming rods work again. The list is configurable via `ZoneScaling.ExcludeCreatureEntries`.
+
 - Trigger creatures and unselectable creatures, such as the invisible casters behind campfires and traps, are no longer scaled, so their damage stays unchanged.
 
 - Creatures pulled by a pet, guardian or totem (including playerbots' pets) now scale to the owning player's level instead of not scaling at all.

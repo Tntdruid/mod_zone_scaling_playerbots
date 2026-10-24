@@ -53,6 +53,11 @@ ZoneScaling.LevelBand = 1
 # stadig til den faktiske modstander, når creature går i kamp.
 ZoneScaling.RescaleIntervalSec = 0
 
+# Kommasepareret liste af creature entries, der aldrig skaleres. Standard er
+# dyrene fra hunter-questen "Taming the Beast", da taming rods kun virker på
+# dyr op til et fast level.
+ZoneScaling.ExcludeCreatureEntries = 1126,1196,1201,1996,1998,2043,2956,2959,2970,3099,3107,3126,15650,15652,16353,17203,17217,17374
+
 
 #------------------------------------------------------------------------------
 # Area/subzone scaling

@@ -59,6 +59,16 @@ void ZoneScalingPB::LoadConfig()
     _zoneSettings.clear();
     _areaSettings.clear();
     _scaledCreatures.clear();
+
+    _excludedEntries.clear();
+    std::string excludedEntries = sConfigMgr->GetOption<std::string>("ZoneScaling.ExcludeCreatureEntries",
+        "1126,1196,1201,1996,1998,2043,2956,2959,2970,3099,3107,3126,15650,15652,16353,17203,17217,17374");
+    std::replace(excludedEntries.begin(), excludedEntries.end(), ',', ' ');
+    std::stringstream excludedIds(excludedEntries);
+    uint32 excludedEntry;
+    while (excludedIds >> excludedEntry)
+        _excludedEntries.insert(excludedEntry);
+
     std::string configuredZones = sConfigMgr->GetOption<std::string>("ZoneScaling.ZoneIds", "");
     std::replace(configuredZones.begin(), configuredZones.end(), ',', ' ');
     std::stringstream zoneIds(configuredZones);
@@ -300,6 +310,9 @@ static bool IsScalableCreature(Creature const* creature)
         return false;
 
     if (creature->IsTrigger() || creature->HasUnitFlag(UNIT_FLAG_NOT_SELECTABLE))
+        return false;
+
+    if (ZoneScalingPB::instance()->IsExcludedEntry(creature->GetEntry()))
         return false;
 
     return true;
