@@ -108,6 +108,9 @@ private:
     // Extra levels dungeon bosses get on top of the instance level.
     uint8 _dungeonBossLevelOffset = 2;
 
+    // Default LevelOffset for dungeon/raid zones (open world uses ZoneScaling.LevelOffset).
+    int32 _dungeonLevelOffset = 1;
+
     ZoneSettings _defaultZoneSettings;
     std::unordered_map<uint32, ZoneSettings> _zoneSettings;
     std::unordered_map<uint32, ZoneSettings> _areaSettings;

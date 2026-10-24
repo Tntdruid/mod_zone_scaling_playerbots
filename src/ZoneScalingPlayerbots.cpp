@@ -77,6 +77,7 @@ void ZoneScalingPB::LoadConfig()
     _levelBand = sConfigMgr->GetOption<uint8>("ZoneScaling.LevelBand", 1);
     _rescaleIntervalSec = sConfigMgr->GetOption<uint32>("ZoneScaling.RescaleIntervalSec", 0);
     _dungeonBossLevelOffset = sConfigMgr->GetOption<uint8>("ZoneScaling.DungeonBossLevelOffset", 2);
+    _dungeonLevelOffset = sConfigMgr->GetOption<int32>("ZoneScaling.DungeonLevelOffset", 1);
     if (_levelBand == 0)
         _levelBand = 1;
 
@@ -116,9 +117,15 @@ void ZoneScalingPB::LoadConfig()
             settings.minLevel = uint8(confMinLevel);
         if (confMaxLevel >= 0)
             settings.maxLevel = uint8(confMaxLevel);
+
+        bool isInstance = IsInstanceZone(zoneId);
+        if (isInstance)
+            settings.levelOffset = _dungeonLevelOffset;
         settings.levelOffset = sConfigMgr->GetOption<int32>(prefix + "LevelOffset", settings.levelOffset, false);
 
-        if (questLevelAutoScale && !IsInstanceZone(zoneId))
+        // Manual MinLevel/MaxLevel always win over quest data.
+        bool hasManualRange = confMinLevel >= 0 || confMaxLevel >= 0;
+        if (questLevelAutoScale && !hasManualRange && !isInstance)
         {
             uint8 questMinLevel, questMaxLevel;
             if (GetQuestLevelRangeForZone(zoneId, questMinLevel, questMaxLevel))
@@ -149,11 +156,17 @@ void ZoneScalingPB::LoadConfig()
             settings.minLevel = uint8(confMinLevel);
         if (confMaxLevel >= 0)
             settings.maxLevel = uint8(confMaxLevel);
-        settings.levelOffset = sConfigMgr->GetOption<int32>(prefix + "LevelOffset", settings.levelOffset, false);
 
         AreaTableEntry const* areaEntry = sAreaTableStore.LookupEntry(areaId);
         uint32 questZoneId = (areaEntry && areaEntry->zone) ? areaEntry->zone : areaId;
-        if (questLevelAutoScale && !IsInstanceZone(questZoneId))
+        bool isInstance = IsInstanceZone(questZoneId);
+        if (isInstance)
+            settings.levelOffset = _dungeonLevelOffset;
+        settings.levelOffset = sConfigMgr->GetOption<int32>(prefix + "LevelOffset", settings.levelOffset, false);
+
+        // Manual MinLevel/MaxLevel always win over quest data.
+        bool hasManualRange = confMinLevel >= 0 || confMaxLevel >= 0;
+        if (questLevelAutoScale && !hasManualRange && !isInstance)
         {
 
             uint8 questMinLevel, questMaxLevel;
